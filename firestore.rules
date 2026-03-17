@@ -1,0 +1,95 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {userId}
+    // Fields:
+    //   - uid: string (required)
+    //   - fullName: string (required, 1-100 chars)
+    //   - email: string (required, valid email)
+    //   - createdAt: string (required, ISO 8601)
+    //
+    // Collection: applications
+    // Document ID: {applicationId}
+    // Fields:
+    //   - id: string (required)
+    //   - userId: string (required, matches creator)
+    //   - title: string (required, 1-200 chars)
+    //   - organization: string (required, 1-200 chars)
+    //   - status: string (required, enum: Pending, Accepted, Rejected)
+    //   - deadline: string (required, ISO 8601 date)
+    //   - createdAt: string (required, ISO 8601)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}.*");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'fullName', 'email', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 100 &&
+             isValidEmail(data.email) &&
+             isValidDateString(data.createdAt);
+    }
+
+    function isValidApplication(data) {
+      return data.keys().hasAll(['id', 'userId', 'title', 'organization', 'status', 'deadline', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             data.organization is string && data.organization.size() >= 1 && data.organization.size() <= 200 &&
+             data.status in ['Pending', 'Accepted', 'Rejected'] &&
+             isValidDateString(data.deadline) &&
+             isValidDateString(data.createdAt);
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
+                      request.resource.data.uid == resource.data.uid &&
+                      request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    match /applications/{applicationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && isValidApplication(request.resource.data);
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && 
+                      isValidApplication(request.resource.data) &&
+                      request.resource.data.userId == resource.data.userId &&
+                      request.resource.data.id == resource.data.id &&
+                      request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+  }
+}

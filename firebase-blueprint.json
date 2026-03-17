@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user metadata and preferences.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Unique identifier for the user." },
+        "fullName": { "type": "string", "description": "User's full name." },
+        "email": { "type": "string", "description": "User's email address." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the account was created." }
+      },
+      "required": ["uid", "fullName", "email", "createdAt"]
+    },
+    "Application": {
+      "title": "Application Entry",
+      "description": "Represents a job, internship, or scholarship application.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the application." },
+        "userId": { "type": "string", "description": "The UID of the owner." },
+        "title": { "type": "string", "description": "Position or title." },
+        "organization": { "type": "string", "description": "Company or institution name." },
+        "status": { 
+          "type": "string", 
+          "enum": ["Pending", "Accepted", "Rejected"],
+          "description": "Current status of the application."
+        },
+        "deadline": { "type": "string", "format": "date", "description": "Application deadline." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the entry was created." }
+      },
+      "required": ["id", "userId", "title", "organization", "status", "deadline", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile documents."
+    },
+    "/applications/{applicationId}": {
+      "schema": "Application",
+      "description": "Collection of all applications."
+    }
+  }
+}
