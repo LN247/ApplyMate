@@ -106,6 +106,10 @@ service cloud.firestore {
         allow read, delete: if isOwner(userId);
         allow create, update: if isOwner(userId) && isValidDocument(request.resource.data);
       }
+
+      match /preferences/{prefId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     match /applications/{applicationId} {
@@ -117,6 +121,10 @@ service cloud.firestore {
                       request.resource.data.id == resource.data.id &&
                       request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    match /test/connection {
+      allow read: if true;
     }
   }
 }

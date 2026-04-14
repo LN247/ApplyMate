@@ -94,6 +94,7 @@ class MainActivity : ComponentActivity() {
                             DiscoveryFeedScreen(
                                 opportunities = discovered,
                                 onSaveClick = { viewModel.saveDiscoveredOpportunity(it) },
+                                onApplyConfirm = { opp, loc -> viewModel.onOpportunityApplied(opp, loc) },
                                 onSettingsClick = { navController.navigate("search_settings") },
                                 onBack = { navController.popBackStack() }
                             )

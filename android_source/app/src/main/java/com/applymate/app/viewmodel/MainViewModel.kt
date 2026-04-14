@@ -8,8 +8,21 @@ import com.applymate.app.data.*
 import androidx.work.*
 import com.applymate.app.worker.DiscoveryWorker
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.launch
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.storage.ktx.storage
+import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.tasks.await
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
+    private val auth = Firebase.auth
+    private val firestore = Firebase.firestore
+    private val storage = Firebase.storage
     private val db = Room.databaseBuilder(
         application,
         AppDatabase::class.java,
@@ -140,6 +153,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 e.printStackTrace()
             }
+        }
+    }
+
+    fun onOpportunityApplied(opportunity: DiscoveredOpportunity, location: String) {
+        viewModelScope.launch {
+            val timestamp = System.currentTimeMillis()
+            val dateStr = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(Date(timestamp))
+            
+            // Auto-Logger: Create a Pending entry with Time and GPS metadata
+            appDao.insertApplication(
+                ApplicationEntity(
+                    title = opportunity.title,
+                    organization = opportunity.organization,
+                    status = "Pending",
+                    deadline = "Applied on $dateStr",
+                    notes = "Auto-logged from Discovery. Captured in: $location"
+                )
+            )
         }
     }
 }

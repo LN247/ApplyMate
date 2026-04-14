@@ -246,6 +246,8 @@ export default function App() {
     const docsUnsubscribe = onSnapshot(collection(db, 'users', user.uid, 'documents'), (snapshot) => {
       const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VaultDocument));
       setDocuments(docs);
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, `users/${user.uid}/documents`);
     });
 
     // Preferences Listener
@@ -253,6 +255,8 @@ export default function App() {
       if (snapshot.exists()) {
         setPreferences(snapshot.data());
       }
+    }, (err) => {
+      handleFirestoreError(err, OperationType.GET, `users/${user.uid}/preferences/profile`);
     });
 
     return () => {
@@ -962,6 +966,18 @@ export default function App() {
               <div className="flex gap-4">
                 <button 
                   onClick={() => {
+                    // Auto-Logger Simulation
+                    const newApp: Application = {
+                      id: Math.random().toString(36).substr(2, 9),
+                      userId: user?.uid || 'anon',
+                      title: selectedOpportunity.title,
+                      organization: selectedOpportunity.organization,
+                      status: 'Pending',
+                      deadline: `Applied on ${new Date().toLocaleDateString()}`,
+                      createdAt: new Date().toISOString()
+                    };
+                    setApplications(prev => [newApp, ...prev]);
+                    
                     window.open(selectedOpportunity.link, '_blank');
                     setShowAutofillSheet(false);
                   }}

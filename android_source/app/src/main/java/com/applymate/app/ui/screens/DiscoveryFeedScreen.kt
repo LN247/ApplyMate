@@ -23,6 +23,7 @@ import com.applymate.app.data.DiscoveredOpportunity
 fun DiscoveryFeedScreen(
     opportunities: List<DiscoveredOpportunity>,
     onSaveClick: (DiscoveredOpportunity) -> Unit,
+    onApplyConfirm: (DiscoveredOpportunity, String) -> Unit,
     onSettingsClick: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -88,9 +89,22 @@ fun DiscoveryFeedScreen(
                 AutofillAssistantContent(
                     opportunity = selectedOpportunity!!,
                     onFillClick = {
+                        val opp = selectedOpportunity!!
                         showAutofillSheet = false
+                        
+                        // Auto-Logger: Capture location and log application
+                        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+                        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+                            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                                val locStr = if (location != null) "${location.latitude}, ${location.longitude}" else "Unknown"
+                                onApplyConfirm(opp, locStr)
+                            }
+                        } else {
+                            onApplyConfirm(opp, "Location Permission Denied")
+                        }
+
                         val intent = CustomTabsIntent.Builder().build()
-                        intent.launchUrl(context, Uri.parse(selectedOpportunity!!.link))
+                        intent.launchUrl(context, Uri.parse(opp.link))
                     }
                 )
             }

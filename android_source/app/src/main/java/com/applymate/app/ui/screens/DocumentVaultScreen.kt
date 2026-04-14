@@ -41,6 +41,27 @@ fun DocumentVaultScreen(
 ) {
     val context = LocalContext.current
     var isUploading by remember { mutableStateOf(false) }
+    var isAuthenticated by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        authenticateWithBiometrics(context) {
+            isAuthenticated = true
+        }
+    }
+
+    if (!isAuthenticated) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Default.Fingerprint, contentDescription = null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Authentication Required", fontWeight = FontWeight.Bold)
+                Button(onClick = { authenticateWithBiometrics(context) { isAuthenticated = true } }, modifier = Modifier.padding(top = 16.dp)) {
+                    Text("Retry")
+                }
+            }
+        }
+        return
+    }
     
     // ML Kit Scanner
     val scannerOptions = GmsDocumentScannerOptions.Builder()
