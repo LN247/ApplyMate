@@ -66,7 +66,9 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onVaultClick = { navController.navigate("vault") },
-                                onDiscoveryClick = { navController.navigate("discovery") }
+                                onDiscoveryClick = { navController.navigate("discovery") },
+                                onSettingsClick = { navController.navigate("settings") },
+                                onHistoryClick = { navController.navigate("history") }
                             )
                         }
                         composable("add") {
@@ -103,6 +105,23 @@ class MainActivity : ComponentActivity() {
                                     viewModel.updatePreferences(it)
                                     navController.popBackStack()
                                 },
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable("settings") {
+                            SettingsScreen(
+                                onNavigateToSearchSettings = { navController.navigate("search_settings") },
+                                onLogout = {
+                                    navController.navigate("login") {
+                                        popUpTo("dashboard") { inclusive = true }
+                                    }
+                                },
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable("history") {
+                            HistoryScreen(
+                                applications = applications,
                                 onBack = { navController.popBackStack() }
                             )
                         }

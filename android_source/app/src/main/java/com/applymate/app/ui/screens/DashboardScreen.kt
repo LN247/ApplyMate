@@ -22,7 +22,9 @@ fun DashboardScreen(
     onDeleteClick: (ApplicationEntity) -> Unit,
     onLogout: () -> Unit,
     onVaultClick: () -> Unit,
-    onDiscoveryClick: () -> Unit
+    onDiscoveryClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    onHistoryClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -36,6 +38,9 @@ fun DashboardScreen(
                     ) 
                 },
                 actions = {
+                    IconButton(onClick = onHistoryClick) {
+                        Icon(Icons.Default.History, contentDescription = "History")
+                    }
                     IconButton(onClick = onLogout) {
                         Icon(
                             Icons.Default.ExitToApp, 
@@ -88,6 +93,12 @@ fun DashboardScreen(
                     onClick = onVaultClick,
                     icon = { Icon(Icons.Default.Lock, contentDescription = null) },
                     label = { Text("Vault") }
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onSettingsClick,
+                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                    label = { Text("Settings") }
                 )
             }
         }
