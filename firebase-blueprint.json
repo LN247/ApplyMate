@@ -30,12 +30,29 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "When the entry was created." }
       },
       "required": ["id", "userId", "title", "organization", "status", "deadline", "createdAt"]
+    },
+    "Document": {
+      "title": "Vault Document",
+      "description": "Metadata for a scanned document in the vault.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "File name." },
+        "fileUrl": { "type": "string", "description": "URL to the file in Storage." },
+        "timestamp": { "type": "number", "description": "Upload timestamp." },
+        "location": { "type": "string", "description": "Geotagged location." },
+        "category": { "type": "string", "description": "Document category (e.g. Resume)." }
+      },
+      "required": ["name", "fileUrl", "timestamp", "location", "category"]
     }
   },
   "firestore": {
     "/users/{userId}": {
       "schema": "User",
       "description": "User profile documents."
+    },
+    "/users/{userId}/documents/{docId}": {
+      "schema": "Document",
+      "description": "User's document vault."
     },
     "/applications/{applicationId}": {
       "schema": "Application",

@@ -25,6 +25,15 @@ service cloud.firestore {
     //   - deadline: string (required, ISO 8601 date)
     //   - createdAt: string (required, ISO 8601)
     //
+    // Collection: users/{userId}/documents
+    // Document ID: {docId}
+    // Fields:
+    //   - name: string (required)
+    //   - fileUrl: string (required, valid URL)
+    //   - timestamp: number (required)
+    //   - location: string (required)
+    //   - category: string (required)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -41,6 +50,10 @@ service cloud.firestore {
 
     function isValidEmail(email) {
       return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
     }
 
     function isValidDateString(dateStr) {
@@ -69,6 +82,15 @@ service cloud.firestore {
              isValidDateString(data.createdAt);
     }
 
+    function isValidDocument(data) {
+      return data.keys().hasAll(['name', 'fileUrl', 'timestamp', 'location', 'category']) &&
+             data.name is string && data.name.size() >= 1 &&
+             isValidUrl(data.fileUrl) &&
+             data.timestamp is number &&
+             data.location is string &&
+             data.category is string;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -79,6 +101,11 @@ service cloud.firestore {
       allow update: if isOwner(userId) && isValidUser(request.resource.data) && 
                       request.resource.data.uid == resource.data.uid &&
                       request.resource.data.createdAt == resource.data.createdAt;
+
+      match /documents/{docId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidDocument(request.resource.data);
+      }
     }
 
     match /applications/{applicationId} {

@@ -27,7 +27,7 @@ import {
   getDocFromServer
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { Application, UserProfile, ApplicationStatus, OperationType, FirestoreErrorInfo } from './types';
+import { Application, UserProfile, ApplicationStatus, OperationType, FirestoreErrorInfo, VaultDocument, DiscoveryOpportunity } from './types';
 import { 
   Plus, 
   LogOut, 
@@ -141,10 +141,41 @@ export default function App() {
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [error, setError] = useState<string | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [documents, setDocuments] = useState<VaultDocument[]>([]);
+  const [discovered, setDiscovered] = useState<DiscoveryOpportunity[]>([]);
+  const [preferences, setPreferences] = useState<any>(null);
   const [filter, setFilter] = useState<ApplicationStatus | 'All'>('All');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAutofillSheet, setShowAutofillSheet] = useState(false);
+  const [selectedOpportunity, setSelectedOpportunity] = useState<DiscoveryOpportunity | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('Dashboard');
+
+  // Mock Discovery Data
+  useEffect(() => {
+    if (discovered.length === 0) {
+      setDiscovered([
+        {
+          id: '1',
+          title: 'AI Research Intern',
+          organization: 'Google DeepMind',
+          location: 'London, UK',
+          matchScore: 98,
+          description: 'Join the team pushing the boundaries of artificial intelligence. Focus on large language models and reinforcement learning.',
+          link: 'https://google.com/careers'
+        },
+        {
+          id: '2',
+          title: 'Frontend Developer (Scholarship)',
+          organization: 'Vercel',
+          location: 'Remote',
+          matchScore: 85,
+          description: 'A scholarship program for aspiring frontend engineers. Learn Next.js and React from the creators.',
+          link: 'https://vercel.com'
+        }
+      ]);
+    }
+  }, [discovered]);
 
   // Auth Listener
   useEffect(() => {
@@ -211,7 +242,24 @@ export default function App() {
       handleFirestoreError(err, OperationType.LIST, 'applications');
     });
 
-    return unsubscribe;
+    // Documents Listener
+    const docsUnsubscribe = onSnapshot(collection(db, 'users', user.uid, 'documents'), (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as VaultDocument));
+      setDocuments(docs);
+    });
+
+    // Preferences Listener
+    const prefsUnsubscribe = onSnapshot(doc(db, 'users', user.uid, 'preferences', 'profile'), (snapshot) => {
+      if (snapshot.exists()) {
+        setPreferences(snapshot.data());
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      docsUnsubscribe();
+      prefsUnsubscribe();
+    };
   }, [user]);
 
   // Handlers
@@ -256,7 +304,9 @@ export default function App() {
     if (!user) return;
 
     const formData = new FormData(e.currentTarget);
+    const docRef = doc(collection(db, 'applications'));
     const newApp = {
+      id: docRef.id,
       userId: user.uid,
       title: formData.get('title') as string,
       organization: formData.get('organization') as string,
@@ -266,7 +316,7 @@ export default function App() {
     };
 
     try {
-      await addDoc(collection(db, 'applications'), newApp);
+      await setDoc(docRef, newApp);
       setShowAddModal(false);
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'applications');
@@ -407,6 +457,8 @@ export default function App() {
         <nav className="space-y-3 flex-1">
           {[
             { icon: LayoutDashboard, label: 'Dashboard' },
+            { icon: Search, label: 'Discovery' },
+            { icon: Lock, label: 'Vault' },
             { icon: History, label: 'History' },
             { icon: Settings, label: 'Settings' },
           ].map((item) => (
@@ -472,170 +524,320 @@ export default function App() {
         </header>
 
         <main className="flex-1 max-w-7xl mx-auto w-full px-6 lg:px-12 py-12">
-          {/* Dashboard Header */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
-            <div>
-              <motion.h2 
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="text-5xl font-black text-slate-900 tracking-tight leading-none"
-              >
-                Hello, {profile?.fullName?.split(' ')[0]}!
-              </motion.h2>
-              <p className="text-slate-400 font-bold text-lg mt-4 flex items-center gap-3">
-                <Clock className="w-6 h-6 text-indigo-500" />
-                You have <span className="text-indigo-600">{stats.pending}</span> active applications.
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <button className="w-16 h-16 rounded-[1.5rem] bg-white border-2 border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm">
-                <Bell className="w-7 h-7" />
-              </button>
-              <button 
-                onClick={() => setShowAddModal(true)}
-                className="m3-button-primary h-16 px-10 text-lg shadow-2xl shadow-indigo-100"
-              >
-                <PlusCircle className="w-6 h-6" />
-                Add Opportunity
-              </button>
-            </div>
-          </div>
-
-          {/* Stats Bento Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-            {[
-              { label: 'Total', value: stats.total, icon: Briefcase, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
-              { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
-              { label: 'Accepted', value: stats.accepted, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
-              { label: 'Rejected', value: stats.rejected, icon: XCircle, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100' },
-            ].map((stat, i) => (
-              <motion.div 
-                key={stat.label}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.1 }}
-                className={cn("m3-card p-8 group cursor-default", stat.border)}
-              >
-                <div className={cn("w-16 h-16 rounded-[1.5rem] flex items-center justify-center mb-8 transition-transform group-hover:scale-110 group-hover:rotate-3", stat.bg, stat.color)}>
-                  <stat.icon className="w-8 h-8" />
-                </div>
-                <p className="text-5xl font-black text-slate-900 tracking-tighter">{stat.value}</p>
-                <p className="text-xs text-slate-400 font-black uppercase tracking-[0.2em] mt-3">{stat.label} Applications</p>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Controls Bar */}
-          <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 mb-12 flex flex-col xl:flex-row gap-6 items-center shadow-sm">
-            <div className="relative flex-1 w-full group">
-              <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
-              <input 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-16 pr-6 h-16 bg-slate-50 border-2 border-transparent rounded-2xl text-sm font-bold outline-none transition-all focus:bg-white focus:border-indigo-100 focus:ring-8 focus:ring-indigo-500/5 placeholder:text-slate-400" 
-                placeholder="Search by role, company, or location..." 
-              />
-            </div>
-            <div className="flex gap-3 p-2 bg-slate-50 rounded-[1.5rem] w-full xl:w-auto overflow-x-auto no-scrollbar">
-              {['All', 'Pending', 'Accepted', 'Rejected'].map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f as any)}
-                  className={cn(
-                    "px-8 py-3.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap",
-                    filter === f 
-                      ? "bg-white text-indigo-600 shadow-xl shadow-indigo-500/10" 
-                      : "text-slate-400 hover:text-slate-600"
-                  )}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Applications List */}
-          <div className="space-y-6">
-            <AnimatePresence mode="popLayout">
-              {filteredApps.length > 0 ? (
-                filteredApps.map((app) => (
-                  <motion.div
-                    key={app.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="m3-card p-8 flex flex-col md:flex-row md:items-center justify-between gap-8 group hover:border-indigo-200 hover:shadow-2xl hover:shadow-indigo-500/5"
+          {activeTab === 'Dashboard' && (
+            <>
+              {/* Dashboard Header */}
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16">
+                <div>
+                  <motion.h2 
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="text-5xl font-black text-slate-900 tracking-tight leading-none"
                   >
-                    <div className="flex items-center gap-8">
-                      <div className={cn(
-                        "w-20 h-20 rounded-[2rem] flex items-center justify-center text-2xl shadow-inner",
-                        app.status === 'Accepted' ? "bg-emerald-50 text-emerald-600" :
-                        app.status === 'Rejected' ? "bg-rose-50 text-rose-600" :
-                        "bg-blue-50 text-blue-600"
-                      )}>
-                        {app.status === 'Accepted' ? <CheckCircle2 className="w-10 h-10" /> :
-                         app.status === 'Rejected' ? <XCircle className="w-10 h-10" /> : 
-                         <Clock className="w-10 h-10" />}
-                      </div>
-                      <div>
-                        <h3 className="text-2xl font-black text-slate-900 tracking-tight group-hover:text-indigo-600 transition-colors">{app.title}</h3>
-                        <div className="flex flex-wrap items-center gap-x-8 gap-y-3 mt-3">
-                          <span className="flex items-center gap-3 text-sm text-slate-500 font-bold">
-                            <Building2 className="w-5 h-5 text-slate-300" /> {app.organization}
-                          </span>
-                          <span className="flex items-center gap-3 text-sm text-slate-500 font-bold">
-                            <Calendar className="w-5 h-5 text-slate-300" /> {new Date(app.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between md:justify-end gap-8 pt-6 md:pt-0 border-t md:border-none border-slate-100">
-                      <span className={cn(
-                        "m3-chip px-6 py-2.5",
-                        app.status === 'Accepted' ? "status-accepted" :
-                        app.status === 'Rejected' ? "status-rejected" :
-                        "status-pending"
-                      )}>
-                        <div className="w-2 h-2 rounded-full bg-current" />
-                        {app.status}
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <button className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center">
-                          <ExternalLink className="w-6 h-6" />
-                        </button>
-                        <button 
-                          onClick={() => deleteApplication(app.id)}
-                          className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all flex items-center justify-center"
-                        >
-                          <Trash2 className="w-6 h-6" />
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))
-              ) : (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-center py-40 bg-white rounded-[4rem] border-4 border-dashed border-slate-100"
-                >
-                  <div className="w-32 h-32 bg-slate-50 rounded-[3rem] flex items-center justify-center mx-auto mb-8">
-                    <Search className="w-16 h-16 text-slate-200" />
-                  </div>
-                  <h3 className="text-3xl font-black text-slate-900 tracking-tight">No opportunities found</h3>
-                  <p className="text-slate-400 font-bold mt-3 text-lg">Try adjusting your filters or start fresh.</p>
+                    Hello, {profile?.fullName?.split(' ')[0]}!
+                  </motion.h2>
+                  <p className="text-slate-400 font-bold text-lg mt-4 flex items-center gap-3">
+                    <Clock className="w-6 h-6 text-indigo-500" />
+                    You have <span className="text-indigo-600">{stats.pending}</span> active applications.
+                  </p>
+                </div>
+                <div className="flex items-center gap-4">
+                  <button className="w-16 h-16 rounded-[1.5rem] bg-white border-2 border-slate-100 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:border-indigo-100 transition-all shadow-sm">
+                    <Bell className="w-7 h-7" />
+                  </button>
                   <button 
                     onClick={() => setShowAddModal(true)}
-                    className="mt-12 m3-button-primary h-16 px-12 mx-auto"
+                    className="m3-button-primary h-16 px-10 text-lg shadow-2xl shadow-indigo-100"
                   >
-                    Add New Opportunity
+                    <PlusCircle className="w-6 h-6" />
+                    Add Opportunity
                   </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                </div>
+              </div>
+
+              {/* Stats Bento Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
+                {[
+                  { label: 'Total', value: stats.total, icon: Briefcase, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
+                  { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100' },
+                  { label: 'Accepted', value: stats.accepted, icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+                  { label: 'Rejected', value: stats.rejected, icon: XCircle, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-rose-100' },
+                ].map((stat, i) => (
+                  <motion.div 
+                    key={stat.label}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.1 }}
+                    className={cn("m3-card p-8 group cursor-default", stat.border)}
+                  >
+                    <div className={cn("w-16 h-16 rounded-[1.5rem] flex items-center justify-center mb-8 transition-transform group-hover:scale-110 group-hover:rotate-3", stat.bg, stat.color)}>
+                      <stat.icon className="w-8 h-8" />
+                    </div>
+                    <p className="text-5xl font-black text-slate-900 tracking-tighter">{stat.value}</p>
+                    <p className="text-xs text-slate-400 font-black uppercase tracking-[0.2em] mt-3">{stat.label} Applications</p>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Controls Bar */}
+              <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 mb-12 flex flex-col xl:flex-row gap-6 items-center shadow-sm">
+                <div className="relative flex-1 w-full group">
+                  <Search className="absolute left-6 top-1/2 -translate-y-1/2 w-6 h-6 text-slate-300 group-focus-within:text-indigo-500 transition-colors" />
+                  <input 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-16 pr-6 h-16 bg-slate-50 border-2 border-transparent rounded-2xl text-sm font-bold outline-none transition-all focus:bg-white focus:border-indigo-100 focus:ring-8 focus:ring-indigo-500/5 placeholder:text-slate-400" 
+                    placeholder="Search by role, company, or location..." 
+                  />
+                </div>
+                <div className="flex gap-3 p-2 bg-slate-50 rounded-[1.5rem] w-full xl:w-auto overflow-x-auto no-scrollbar">
+                  {['All', 'Pending', 'Accepted', 'Rejected'].map((f) => (
+                    <button
+                      key={f}
+                      onClick={() => setFilter(f as any)}
+                      className={cn(
+                        "px-8 py-3.5 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all whitespace-nowrap",
+                        filter === f 
+                          ? "bg-white text-indigo-600 shadow-xl shadow-indigo-500/10" 
+                          : "text-slate-400 hover:text-slate-600"
+                      )}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Applications List */}
+              <div className="space-y-6">
+                <AnimatePresence mode="popLayout">
+                  {filteredApps.length > 0 ? (
+                    filteredApps.map((app) => (
+                      <motion.div
+                        key={app.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="m3-card p-8 flex flex-col md:flex-row md:items-center justify-between gap-8 group hover:border-indigo-200 hover:shadow-2xl hover:shadow-indigo-500/5"
+                      >
+                        <div className="flex items-center gap-8">
+                          <div className={cn(
+                            "w-20 h-20 rounded-[2rem] flex items-center justify-center text-2xl shadow-inner",
+                            app.status === 'Accepted' ? "bg-emerald-50 text-emerald-600" :
+                            app.status === 'Rejected' ? "bg-rose-50 text-rose-600" :
+                            "bg-blue-50 text-blue-600"
+                          )}>
+                            {app.status === 'Accepted' ? <CheckCircle2 className="w-10 h-10" /> :
+                             app.status === 'Rejected' ? <XCircle className="w-10 h-10" /> : 
+                             <Clock className="w-10 h-10" />}
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-black text-slate-900 tracking-tight group-hover:text-indigo-600 transition-colors">{app.title}</h3>
+                            <div className="flex flex-wrap items-center gap-x-8 gap-y-3 mt-3">
+                              <span className="flex items-center gap-3 text-sm text-slate-500 font-bold">
+                                <Building2 className="w-5 h-5 text-slate-300" /> {app.organization}
+                              </span>
+                              <span className="flex items-center gap-3 text-sm text-slate-500 font-bold">
+                                <Calendar className="w-5 h-5 text-slate-300" /> {new Date(app.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center justify-between md:justify-end gap-8 pt-6 md:pt-0 border-t md:border-none border-slate-100">
+                          <span className={cn(
+                            "m3-chip px-6 py-2.5",
+                            app.status === 'Accepted' ? "status-accepted" :
+                            app.status === 'Rejected' ? "status-rejected" :
+                            "status-pending"
+                          )}>
+                            <div className="w-2 h-2 rounded-full bg-current" />
+                            {app.status}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <button className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center">
+                              <ExternalLink className="w-6 h-6" />
+                            </button>
+                            <button 
+                              onClick={() => deleteApplication(app.id)}
+                              className="w-14 h-14 rounded-2xl bg-slate-50 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all flex items-center justify-center"
+                            >
+                              <Trash2 className="w-6 h-6" />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-center py-40 bg-white rounded-[4rem] border-4 border-dashed border-slate-100"
+                    >
+                      <div className="w-32 h-32 bg-slate-50 rounded-[3rem] flex items-center justify-center mx-auto mb-8">
+                        <Search className="w-16 h-16 text-slate-200" />
+                      </div>
+                      <h3 className="text-3xl font-black text-slate-900 tracking-tight">No opportunities found</h3>
+                      <p className="text-slate-400 font-bold mt-3 text-lg">Try adjusting your filters or start fresh.</p>
+                      <button 
+                        onClick={() => setShowAddModal(true)}
+                        className="mt-12 m3-button-primary h-16 px-12 mx-auto"
+                      >
+                        Add New Opportunity
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </>
+          )}
+
+          {activeTab === 'Discovery' && (
+            <div className="space-y-12">
+              <div className="flex justify-between items-end">
+                <div>
+                  <h2 className="text-5xl font-black text-slate-900 tracking-tight">Discovery Engine</h2>
+                  <p className="text-slate-400 font-bold text-lg mt-4">AI-powered opportunities tailored for you.</p>
+                </div>
+                <button 
+                  onClick={() => setActiveTab('Settings')}
+                  className="m3-button-secondary h-14 px-8"
+                >
+                  <Filter className="w-5 h-5" />
+                  Refine Search
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {discovered.length > 0 ? discovered.map(opp => (
+                  <motion.div 
+                    key={opp.id}
+                    className="m3-card p-8 group"
+                  >
+                    <div className="flex justify-between items-start mb-6">
+                      <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 font-black text-xl">
+                        {opp.matchScore}%
+                      </div>
+                      <button 
+                        onClick={() => {
+                          setSelectedOpportunity(opp);
+                          setShowAutofillSheet(true);
+                        }}
+                        className="m3-button-primary h-12 px-6 text-sm"
+                      >
+                        Apply Now
+                      </button>
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-900 mb-2">{opp.title}</h3>
+                    <p className="text-slate-500 font-bold mb-6 flex items-center gap-2">
+                      <Building2 className="w-5 h-5" /> {opp.organization} • {opp.location}
+                    </p>
+                    <p className="text-slate-400 text-sm leading-relaxed line-clamp-3">{opp.description}</p>
+                  </motion.div>
+                )) : (
+                  <div className="col-span-full py-32 text-center bg-white rounded-[3rem] border-4 border-dashed border-slate-100">
+                    <Search className="w-16 h-16 text-slate-200 mx-auto mb-6" />
+                    <h3 className="text-2xl font-black text-slate-900">Scanning for opportunities...</h3>
+                    <p className="text-slate-400 font-bold mt-2">Make sure your preferences are set in Settings.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'Vault' && (
+            <div className="space-y-12">
+              <div className="flex justify-between items-end">
+                <div>
+                  <h2 className="text-5xl font-black text-slate-900 tracking-tight">Document Vault</h2>
+                  <p className="text-slate-400 font-bold text-lg mt-4">Secure storage for your application assets.</p>
+                </div>
+                <button className="m3-button-primary h-14 px-8">
+                  <Plus className="w-5 h-5" />
+                  Upload Document
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                {documents.map(doc => (
+                  <div key={doc.id} className="m3-card p-6 flex items-center gap-6">
+                    <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
+                      <LayoutDashboard className="w-7 h-7" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-slate-900 truncate">{doc.name}</p>
+                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-1">{doc.category}</p>
+                    </div>
+                    <button className="text-slate-300 hover:text-indigo-600 transition-colors">
+                      <ExternalLink className="w-5 h-5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'History' && (
+            <div className="space-y-12">
+              <h2 className="text-5xl font-black text-slate-900 tracking-tight">Application History</h2>
+              <div className="space-y-6">
+                {applications.filter(a => a.status !== 'Pending').map(app => (
+                  <div key={app.id} className="m3-card p-8 flex items-center justify-between">
+                    <div className="flex items-center gap-8">
+                      <div className={cn(
+                        "w-16 h-16 rounded-2xl flex items-center justify-center",
+                        app.status === 'Accepted' ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600"
+                      )}>
+                        {app.status === 'Accepted' ? <CheckCircle2 className="w-8 h-8" /> : <XCircle className="w-8 h-8" />}
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-black text-slate-900">{app.title}</h3>
+                        <p className="text-slate-400 font-bold">{app.organization}</p>
+                      </div>
+                    </div>
+                    <span className={cn(
+                      "m3-chip px-6 py-2",
+                      app.status === 'Accepted' ? "status-accepted" : "status-rejected"
+                    )}>
+                      {app.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'Settings' && (
+            <div className="max-w-2xl space-y-12">
+              <h2 className="text-5xl font-black text-slate-900 tracking-tight">Settings</h2>
+              
+              <section className="space-y-8">
+                <h3 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">Discovery Preferences</h3>
+                <div className="space-y-6">
+                  <div className="group">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Field of Study</label>
+                    <input className="m3-input h-14" defaultValue={preferences?.fieldOfStudy || "Computer Science"} />
+                  </div>
+                  <div className="group">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block">Preferred Locations</label>
+                    <input className="m3-input h-14" defaultValue={preferences?.preferredLocations || "Remote, Europe"} />
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-8 pt-8 border-t border-slate-100">
+                <h3 className="text-xs font-black text-indigo-600 uppercase tracking-[0.3em]">Account</h3>
+                <button 
+                  onClick={() => signOut(auth)}
+                  className="w-full h-16 bg-rose-50 text-rose-600 rounded-2xl font-black flex items-center justify-center gap-4 hover:bg-rose-100 transition-colors"
+                >
+                  <LogOut className="w-6 h-6" />
+                  Sign Out of ApplyMate
+                </button>
+              </section>
+            </div>
+          )}
         </main>
       </div>
 
@@ -708,6 +910,73 @@ export default function App() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Autofill Assistant Sheet */}
+      <AnimatePresence>
+        {showAutofillSheet && selectedOpportunity && (
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-[110] flex items-end justify-center">
+            <motion.div 
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              className="bg-white w-full max-w-2xl rounded-t-[3rem] p-10 shadow-2xl border-t border-slate-100"
+            >
+              <div className="w-12 h-1.5 bg-slate-200 rounded-full mx-auto mb-8" />
+              
+              <div className="flex items-center gap-6 mb-8">
+                <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white">
+                  <PlusCircle className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black text-slate-900">Autofill Assistant</h3>
+                  <p className="text-slate-400 font-bold">ApplyMate Co-pilot is ready.</p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-6 rounded-2xl mb-8 space-y-4">
+                <p className="text-sm text-slate-600 font-bold">We found matching data in your profile:</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-white rounded-xl border border-slate-100">
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Full Name</p>
+                    <p className="text-sm font-black text-slate-900">{profile?.fullName}</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-100">
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Email</p>
+                    <p className="text-sm font-black text-slate-900">{profile?.email}</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-100">
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Resume</p>
+                    <p className="text-sm font-black text-indigo-600">Latest_Resume.pdf</p>
+                  </div>
+                  <div className="p-4 bg-white rounded-xl border border-slate-100">
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">LinkedIn</p>
+                    <p className="text-sm font-black text-indigo-600">linkedin.com/in/...</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => {
+                    window.open(selectedOpportunity.link, '_blank');
+                    setShowAutofillSheet(false);
+                  }}
+                  className="m3-button-primary flex-1 h-16 text-lg"
+                >
+                  Fill This Form
+                  <ExternalLink className="w-6 h-6" />
+                </button>
+                <button 
+                  onClick={() => setShowAutofillSheet(false)}
+                  className="m3-button-secondary px-10 h-16 text-lg"
+                >
+                  Cancel
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

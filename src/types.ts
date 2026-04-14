@@ -17,6 +17,25 @@ export interface Application {
   createdAt: string;
 }
 
+export interface VaultDocument {
+  id: string;
+  name: string;
+  fileUrl: string;
+  timestamp: number;
+  location: string;
+  category: string;
+}
+
+export interface DiscoveryOpportunity {
+  id: string;
+  title: string;
+  organization: string;
+  location: string;
+  matchScore: number;
+  description: string;
+  link: string;
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
