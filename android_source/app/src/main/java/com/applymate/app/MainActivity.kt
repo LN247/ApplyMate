@@ -3,6 +3,7 @@ package com.applymate.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -12,13 +13,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.applymate.app.ui.screens.AddOpportunityScreen
-import com.applymate.app.ui.screens.DashboardScreen
+import com.applymate.app.ui.screens.*
 import com.applymate.app.ui.theme.ApplyMateTheme
 import com.applymate.app.viewmodel.MainViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         setContent {
             ApplyMateTheme {
@@ -28,14 +29,44 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val viewModel: MainViewModel = viewModel()
                     val applications by viewModel.applications.collectAsState(initial = emptyList())
+                    val documents by viewModel.documents.collectAsState(initial = emptyList())
+                    val preferences by viewModel.preferenceProfile.collectAsState(initial = null)
+                    val discovered by viewModel.discoveredOpportunities.collectAsState(initial = emptyList())
                     val navController = rememberNavController()
 
-                    NavHost(navController = navController, startDestination = "dashboard") {
+                    NavHost(navController = navController, startDestination = "login") {
+                        composable("login") {
+                            LoginScreen(
+                                onLoginSuccess = { 
+                                    navController.navigate("dashboard") {
+                                        popUpTo("login") { inclusive = true }
+                                    }
+                                },
+                                onNavigateToSignup = { navController.navigate("signup") }
+                            )
+                        }
+                        composable("signup") {
+                            SignupScreen(
+                                onSignupSuccess = { 
+                                    navController.navigate("dashboard") {
+                                        popUpTo("signup") { inclusive = true }
+                                    }
+                                },
+                                onNavigateToLogin = { navController.popBackStack() }
+                            )
+                        }
                         composable("dashboard") {
                             DashboardScreen(
                                 applications = applications,
                                 onAddClick = { navController.navigate("add") },
-                                onDeleteClick = { viewModel.deleteApplication(it) }
+                                onDeleteClick = { viewModel.deleteApplication(it) },
+                                onLogout = {
+                                    navController.navigate("login") {
+                                        popUpTo("dashboard") { inclusive = true }
+                                    }
+                                },
+                                onVaultClick = { navController.navigate("vault") },
+                                onDiscoveryClick = { navController.navigate("discovery") }
                             )
                         }
                         composable("add") {
@@ -45,6 +76,34 @@ class MainActivity : ComponentActivity() {
                                     viewModel.addApplication(title, org, status, deadline)
                                     navController.popBackStack()
                                 }
+                            )
+                        }
+                        composable("vault") {
+                            DocumentVaultScreen(
+                                documents = documents,
+                                onScanClick = { file, category, location ->
+                                    viewModel.uploadDocument(file, category, location)
+                                },
+                                onDeleteClick = { viewModel.deleteDocument(it) },
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable("discovery") {
+                            DiscoveryFeedScreen(
+                                opportunities = discovered,
+                                onSaveClick = { viewModel.saveDiscoveredOpportunity(it) },
+                                onSettingsClick = { navController.navigate("search_settings") },
+                                onBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable("search_settings") {
+                            SearchSettingsScreen(
+                                currentProfile = preferences,
+                                onSave = { 
+                                    viewModel.updatePreferences(it)
+                                    navController.popBackStack()
+                                },
+                                onBack = { navController.popBackStack() }
                             )
                         }
                     }

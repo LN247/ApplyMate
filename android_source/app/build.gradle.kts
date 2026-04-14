@@ -65,4 +65,31 @@ dependencies {
 
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.7.7")
+
+    // Splash Screen
+    implementation("androidx.core:core-splashscreen:1.0.1")
+
+    // ML Kit Document Scanner
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
+
+    // Location
+    implementation("com.google.android.gms:play-services-location:21.1.0")
+
+    // Biometrics
+    implementation("androidx.biometric:biometric:1.1.0")
+
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:32.7.2"))
+    implementation("com.google.firebase:firebase-storage-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-auth-ktx")
+
+    // WorkManager
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // Browser (Chrome Custom Tabs)
+    implementation("androidx.browser:browser:1.7.0")
+
+    // Gemini AI
+    implementation("com.google.ai.client.generativeai:generativeai:0.2.0")
 }

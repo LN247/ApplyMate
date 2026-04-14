@@ -25,7 +25,46 @@ interface ApplicationDao {
     suspend fun deleteApplication(application: ApplicationEntity)
 }
 
-@Database(entities = [ApplicationEntity::class], version = 1)
+@Dao
+interface DocumentDao {
+    @Query("SELECT * FROM documents ORDER BY timestamp DESC")
+    fun getAllDocuments(): Flow<List<DocumentEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDocument(document: DocumentEntity)
+
+    @Delete
+    suspend fun deleteDocument(document: DocumentEntity)
+}
+
+@Dao
+interface PreferenceDao {
+    @Query("SELECT * FROM user_preferences WHERE id = 1")
+    fun getPreferenceProfile(): Flow<PreferenceProfile?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun updatePreferenceProfile(profile: PreferenceProfile)
+}
+
+@Dao
+interface DiscoveryDao {
+    @Query("SELECT * FROM discovered_opportunities ORDER BY matchScore DESC")
+    fun getAllDiscovered(): Flow<List<DiscoveredOpportunity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOpportunities(opportunities: List<DiscoveredOpportunity>)
+
+    @Update
+    suspend fun updateOpportunity(opportunity: DiscoveredOpportunity)
+
+    @Query("DELETE FROM discovered_opportunities WHERE isSaved = 0")
+    suspend fun clearUnsaved()
+}
+
+@Database(entities = [ApplicationEntity::class, DocumentEntity::class, PreferenceProfile::class, DiscoveredOpportunity::class], version = 3)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun applicationDao(): ApplicationDao
+    abstract fun documentDao(): DocumentDao
+    abstract fun preferenceDao(): PreferenceDao
+    abstract fun discoveryDao(): DiscoveryDao
 }

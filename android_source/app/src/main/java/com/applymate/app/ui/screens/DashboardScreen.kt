@@ -15,12 +15,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.applymate.app.data.ApplicationEntity
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     applications: List<ApplicationEntity>,
     onAddClick: () -> Unit,
-    onDeleteClick: (ApplicationEntity) -> Unit
+    onDeleteClick: (ApplicationEntity) -> Unit,
+    onLogout: () -> Unit,
+    onVaultClick: () -> Unit,
+    onDiscoveryClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -29,24 +31,65 @@ fun DashboardScreen(
                     Text(
                         "ApplyMate", 
                         fontWeight = FontWeight.Black,
-                        letterSpacing = (-1).sp
+                        letterSpacing = (-1).sp,
+                        color = MaterialTheme.colorScheme.primary
                     ) 
                 },
                 actions = {
-                    IconButton(onClick = { /* Profile */ }) {
-                        Icon(Icons.Default.AccountCircle, contentDescription = "Profile")
+                    IconButton(onClick = onLogout) {
+                        Icon(
+                            Icons.Default.ExitToApp, 
+                            contentDescription = "Logout",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.largeTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.primary
+                )
             )
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddClick,
                 icon = { Icon(Icons.Default.Add, "Add") },
-                text = { Text("New Opportunity") },
+                text = { Text("Add Application") },
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = Color.White
+                contentColor = MaterialTheme.colorScheme.onPrimary,
+                shape = MaterialTheme.shapes.large
             )
+        },
+        bottomBar = {
+            NavigationBar(
+                containerColor = MaterialTheme.colorScheme.surface,
+                tonalElevation = 8.dp
+            ) {
+                NavigationBarItem(
+                    selected = true,
+                    onClick = { },
+                    icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                    label = { Text("Home") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        indicatorColor = MaterialTheme.colorScheme.primaryContainer
+                    )
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onDiscoveryClick,
+                    icon = { Icon(Icons.Default.Explore, contentDescription = null) },
+                    label = { Text("Discovery") }
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = onVaultClick,
+                    icon = { Icon(Icons.Default.Lock, contentDescription = null) },
+                    label = { Text("Vault") }
+                )
+            }
         }
     ) { padding ->
         Column(
@@ -66,14 +109,16 @@ fun DashboardScreen(
             }
 
             Text(
-                "Recent Opportunities",
+                "My Applications",
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                color = MaterialTheme.colorScheme.onBackground
             )
 
             LazyColumn(
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 items(applications) { app ->
                     ApplicationItem(app, onDeleteClick)
@@ -87,10 +132,11 @@ fun DashboardScreen(
 fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black)
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(value, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary)
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -98,34 +144,54 @@ fun StatCard(label: String, value: String, modifier: Modifier = Modifier) {
 
 @Composable
 fun ApplicationItem(app: ApplicationEntity, onDelete: (ApplicationEntity) -> Unit) {
-    Card(
+    ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier
-                .padding(16.dp)
+                .padding(20.dp)
                 .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(app.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(app.organization, style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                Spacer(modifier = Modifier.height(4.dp))
-                AssistChip(
-                    onClick = {},
-                    label = { Text(app.status) },
-                    leadingIcon = {
-                        Icon(
-                            if (app.status == "Accepted") Icons.Default.CheckCircle else Icons.Default.Info,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                Text(app.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                Text(app.organization, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Status Badge (Pill-shaped)
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = androidx.compose.foundation.shape.CircleShape
+                    ) {
+                        Text(
+                            text = app.status,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
-                )
+                    
+                    // Deadline Countdown (Mocked for now)
+                    Text(
+                        text = "Due: ${app.deadline}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+                }
             }
-            IconButton(onClick = { onDelete(app) }) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color.Red)
+            IconButton(
+                onClick = { onDelete(app) },
+                colors = IconButtonDefaults.iconButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = "Delete")
             }
         }
     }

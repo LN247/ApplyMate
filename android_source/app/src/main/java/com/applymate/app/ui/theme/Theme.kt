@@ -8,16 +8,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF4F46E5), // Indigo 600
-    secondary = Color(0xFF6366F1), // Indigo 500
-    tertiary = Color(0xFF10B981), // Emerald 500
-    background = Color(0xFFF8FAFC), // Slate 50
-    surface = Color.White,
+    primary = VividOrange,
     onPrimary = Color.White,
+    primaryContainer = LightOrange,
+    onPrimaryContainer = MutedTerracotta,
+    secondary = MutedTerracotta,
     onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF0F172A), // Slate 900
-    onSurface = Color(0xFF0F172A)
+    background = SoftCream,
+    onBackground = WarmGreyBrown,
+    surface = SoftCream,
+    onSurface = WarmGreyBrown,
+    surfaceVariant = SoftCreamVariant,
+    onSurfaceVariant = DarkGreyBrown,
+    outline = WarmGreyBrown
 )
 
 @Composable
