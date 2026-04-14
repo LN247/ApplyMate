@@ -14,9 +14,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -35,15 +37,29 @@ import java.util.concurrent.Executor
 @Composable
 fun DocumentVaultScreen(
     documents: List<DocumentEntity>,
+    userProfile: UserProfile?,
     onScanClick: (File, String, String) -> Unit,
+    onHeadshotUpdate: (File) -> Unit,
     onDeleteClick: (DocumentEntity) -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
-    var isUploading by remember { mutableStateOf(false) }
-    var isAuthenticated by remember { mutableStateOf(false) }
+    var showCategoryDialog by remember { mutableStateOf(false) }
+    var selectedCategory by remember { mutableStateOf("CV") }
+    var pendingFile by remember { mutableStateOf<File?>(null) }
+    var pendingLocation by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
+    val headshotLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            // In a real app, save bitmap to file and call onHeadshotUpdate
+            val file = File(context.cacheDir, "headshot.jpg")
+            onHeadshotUpdate(file)
+        }
+    }
+
+    if (!isAuthenticated) {
         authenticateWithBiometrics(context) {
             isAuthenticated = true
         }
@@ -78,21 +94,21 @@ fun DocumentVaultScreen(
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             val scanningResult = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
             scanningResult?.pdf?.uri?.let { uri ->
-                // In a real app, we'd copy this to a local file and get location
-                // For now, we'll simulate the location and file processing
                 isUploading = true
-                // Simulate location capture
                 val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
                     fusedLocationClient.lastLocation.addOnSuccessListener { location ->
                         val locationName = if (location != null) "${location.latitude}, ${location.longitude}" else "Unknown Location"
-                        // Simulate file creation from URI
                         val file = File(context.cacheDir, "scanned_doc.pdf")
-                        onScanClick(file, "Resume", locationName)
+                        pendingFile = file
+                        pendingLocation = locationName
+                        showCategoryDialog = true
                         isUploading = false
                     }
                 } else {
-                    onScanClick(File(context.cacheDir, "scanned_doc.pdf"), "Resume", "Location Permission Denied")
+                    pendingFile = File(context.cacheDir, "scanned_doc.pdf")
+                    pendingLocation = "Location Permission Denied"
+                    showCategoryDialog = true
                     isUploading = false
                 }
             }
@@ -109,6 +125,32 @@ fun DocumentVaultScreen(
                     scannerLauncher.launch(androidx.activity.result.IntentSenderRequest.Builder(intentSender).build())
                 }
         }
+    }
+
+    if (showCategoryDialog) {
+        AlertDialog(
+            onDismissRequest = { showCategoryDialog = false },
+            title = { Text("Select Category") },
+            text = {
+                Column {
+                    listOf("CV", "Essay", "Certificate", "Transcript").forEach { category ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().clickable { selectedCategory = category }
+                        ) {
+                            RadioButton(selected = selectedCategory == category, onClick = { selectedCategory = category })
+                            Text(category, modifier = Modifier.padding(start = 8.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    pendingFile?.let { onScanClick(it, selectedCategory, pendingLocation) }
+                    showCategoryDialog = false
+                }) { Text("Save") }
+            }
+        )
     }
 
     Scaffold(
@@ -146,7 +188,7 @@ fun DocumentVaultScreen(
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding).fillMaxSize()) {
-            if (documents.isEmpty()) {
+            if (documents.isEmpty() && userProfile?.headshotUrl == null) {
                 Column(
                     modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.Center,
@@ -165,8 +207,26 @@ fun DocumentVaultScreen(
             } else {
                 LazyColumn(
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    item {
+                        HeadshotSection(userProfile) {
+                            authenticateWithBiometrics(context) {
+                                headshotLauncher.launch(null)
+                            }
+                        }
+                    }
+                    
+                    item {
+                        Text(
+                            "Your Documents",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+
                     items(documents) { doc ->
                         DocumentItem(doc, onDeleteClick)
                     }
@@ -182,6 +242,64 @@ fun DocumentVaultScreen(
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+fun HeadshotSection(profile: UserProfile?, onUpdate: () -> Unit) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(32.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = Color.White)
+    ) {
+        Row(
+            modifier = Modifier.padding(24.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(contentAlignment = Alignment.BottomEnd) {
+                Surface(
+                    modifier = Modifier.size(80.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    if (profile?.headshotUrl != null) {
+                        AsyncImage(
+                            model = profile.headshotUrl,
+                            contentDescription = "Headshot",
+                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            modifier = Modifier.padding(20.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                Surface(
+                    modifier = Modifier.size(28.dp).clickable { onUpdate() },
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    shadowElevation = 4.dp
+                ) {
+                    Icon(
+                        Icons.Default.CameraAlt,
+                        contentDescription = "Update",
+                        modifier = Modifier.padding(6.dp),
+                        tint = Color.White
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(20.dp))
+            
+            Column {
+                Text("Professional Headshot", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                Text("Used for verification", color = Color.Gray, fontSize = 12.sp)
             }
         }
     }

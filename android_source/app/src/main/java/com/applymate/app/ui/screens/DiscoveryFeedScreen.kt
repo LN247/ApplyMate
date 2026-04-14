@@ -22,12 +22,15 @@ import com.applymate.app.data.DiscoveredOpportunity
 @Composable
 fun DiscoveryFeedScreen(
     opportunities: List<DiscoveredOpportunity>,
+    isSearching: Boolean,
+    onSearchClick: (String) -> Unit,
     onSaveClick: (DiscoveredOpportunity) -> Unit,
     onApplyConfirm: (DiscoveredOpportunity, String) -> Unit,
     onSettingsClick: () -> Unit,
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    var searchQuery by remember { mutableStateOf("") }
     var selectedOpportunity by remember { mutableStateOf<DiscoveredOpportunity?>(null) }
     val sheetState = rememberModalBottomSheetState()
     var showAutofillSheet by remember { mutableStateOf(false) }
@@ -35,7 +38,12 @@ fun DiscoveryFeedScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Discovery Engine", fontWeight = FontWeight.Black) },
+                title = { 
+                    Column {
+                        Text("Discovery Engine", fontWeight = FontWeight.Black, fontSize = 20.sp)
+                        Text("Find your next move", style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -53,29 +61,78 @@ fun DiscoveryFeedScreen(
             )
         }
     ) { padding ->
-        if (opportunities.isEmpty()) {
-            Box(modifier = Modifier.padding(padding).fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Searching for opportunities...", color = Color.Gray)
+        Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+            // Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                placeholder = { Text("Search scholarships, internships...") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { onSearchClick(searchQuery) }) {
+                            Icon(Icons.Default.ArrowForward, contentDescription = "Search", tint = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                },
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    unfocusedBorderColor = Color.LightGray
+                )
+            )
+
+            if (isSearching) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("AI is scanning for opportunities...", color = Color.Gray)
+                    }
                 }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.padding(padding).fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(opportunities) { opp ->
-                    DiscoveryCard(
-                        opportunity = opp,
-                        onApplyClick = {
-                            selectedOpportunity = opp
-                            showAutofillSheet = true
-                        },
-                        onSaveClick = { onSaveClick(opp) }
-                    )
+            } else if (opportunities.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.AutoFixHigh,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = Color.LightGray
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Ready to discover?", fontWeight = FontWeight.Bold)
+                        Text("Enter a search query above", color = Color.Gray)
+                    }
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    items(opportunities) { opp ->
+                        DiscoveryCard(
+                            opportunity = opp,
+                            onApplyClick = {
+                                // Open link directly
+                                val intent = CustomTabsIntent.Builder().build()
+                                try {
+                                    intent.launchUrl(context, Uri.parse(opp.link))
+                                } catch (e: Exception) {
+                                    val browserIntent = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(opp.link))
+                                    context.startActivity(browserIntent)
+                                }
+                                
+                                selectedOpportunity = opp
+                                showAutofillSheet = true
+                            },
+                            onSaveClick = { onSaveClick(opp) }
+                        )
+                    }
                 }
             }
         }

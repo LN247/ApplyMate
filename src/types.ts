@@ -4,6 +4,7 @@ export interface UserProfile {
   uid: string;
   fullName: string;
   email: string;
+  headshotUrl?: string;
   createdAt: string;
 }
 

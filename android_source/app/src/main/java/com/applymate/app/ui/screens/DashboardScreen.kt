@@ -1,7 +1,9 @@
 package com.applymate.app.ui.screens
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -16,8 +18,36 @@ import androidx.compose.ui.unit.sp
 import com.applymate.app.data.ApplicationEntity
 
 @Composable
+fun Logo(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(48.dp)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.primaryContainer),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(androidx.compose.foundation.shape.CircleShape)
+                .background(Color(0xFF1A1F2C)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "A",
+                color = Color(0xFFFF6D00),
+                fontWeight = FontWeight.Black,
+                fontSize = 20.sp,
+                letterSpacing = (-1).sp
+            )
+        }
+    }
+}
+
+@Composable
 fun DashboardScreen(
     applications: List<ApplicationEntity>,
+    userProfile: UserProfile?,
     onAddClick: () -> Unit,
     onDeleteClick: (ApplicationEntity) -> Unit,
     onLogout: () -> Unit,
@@ -30,14 +60,29 @@ fun DashboardScreen(
         topBar = {
             LargeTopAppBar(
                 title = { 
-                    Text(
-                        "ApplyMate", 
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = (-1).sp,
-                        color = MaterialTheme.colorScheme.primary
-                    ) 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Logo()
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            "ApplyMate", 
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-1).sp,
+                            color = MaterialTheme.colorScheme.primary
+                        ) 
+                    }
                 },
                 actions = {
+                    if (userProfile?.headshotUrl != null) {
+                        AsyncImage(
+                            model = userProfile.headshotUrl,
+                            contentDescription = "Profile",
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                    }
                     IconButton(onClick = onHistoryClick) {
                         Icon(Icons.Default.History, contentDescription = "History")
                     }

@@ -3,29 +3,34 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-brand-primary: #FF6D00;
+  --color-brand-surface: #FFFBF2;
+  --color-brand-secondary: #D84315;
+  --color-brand-neutral: #4E4639;
+  --color-brand-dark: #1A1F2C;
 }
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 font-sans antialiased selection:bg-indigo-100 selection:text-indigo-900;
+    @apply bg-brand-surface text-brand-neutral font-sans antialiased selection:bg-brand-primary/20 selection:text-brand-primary;
   }
 }
 
 @layer components {
   .m3-card {
-    @apply bg-white rounded-[2.5rem] border border-slate-200 shadow-sm transition-all duration-300;
+    @apply bg-white rounded-[2.5rem] border border-brand-neutral/10 shadow-sm transition-all duration-300;
   }
 
   .m3-button-primary {
-    @apply bg-indigo-600 text-white px-8 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 hover:bg-indigo-700 hover:shadow-xl hover:shadow-indigo-500/20 disabled:opacity-50 disabled:pointer-events-none;
+    @apply bg-brand-primary text-white px-8 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 hover:bg-brand-secondary hover:shadow-xl hover:shadow-brand-primary/20 disabled:opacity-50 disabled:pointer-events-none;
   }
 
   .m3-button-secondary {
-    @apply bg-slate-100 text-slate-900 px-8 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 hover:bg-slate-200 disabled:opacity-50;
+    @apply bg-brand-neutral/5 text-brand-neutral px-8 py-3 rounded-2xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 hover:bg-brand-neutral/10 disabled:opacity-50;
   }
 
   .m3-input {
-    @apply w-full bg-slate-50 border-2 border-transparent px-6 py-4 rounded-2xl text-sm font-bold outline-none transition-all focus:bg-white focus:border-indigo-600/20 focus:ring-4 focus:ring-indigo-600/5 placeholder:text-slate-400;
+    @apply w-full bg-brand-neutral/5 border-2 border-transparent px-6 py-4 rounded-2xl text-sm font-bold outline-none transition-all focus:bg-white focus:border-brand-primary/20 focus:ring-4 focus:ring-brand-primary/5 placeholder:text-brand-neutral/40;
   }
 
   .m3-chip {
