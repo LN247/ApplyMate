@@ -168,6 +168,7 @@ export default function App() {
   const [discoveryQuery, setDiscoveryQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState('Dashboard');
+  const [isOfflineMode, setIsOfflineMode] = useState(false);
 
   // Mock Discovery Data
   useEffect(() => {
@@ -422,7 +423,7 @@ export default function App() {
   if (error && error.startsWith('{')) return <ErrorBoundary error={error} reset={() => setError(null)} />;
 
   // --- Auth View ---
-  if (!user) {
+  if (!user && !isOfflineMode) {
     return (
       <div className="min-h-screen bg-brand-surface flex items-center justify-center p-6 selection:bg-brand-primary/20">
         <motion.div 
@@ -492,6 +493,16 @@ export default function App() {
                   <ArrowRight className="w-6 h-6" />
                 </button>
               </form>
+
+              <button 
+                onClick={() => setIsOfflineMode(true)}
+                className="w-full h-16 flex items-center justify-center gap-4 bg-brand-surface border-2 border-brand-neutral/5 rounded-2xl font-black text-brand-neutral/60 hover:bg-white hover:border-brand-neutral/10 transition-all active:scale-[0.98]"
+              >
+                <div className="w-5 h-5 flex items-center justify-center">
+                  <div className="w-2 h-2 bg-brand-neutral/20 rounded-full" />
+                </div>
+                Continue Offline
+              </button>
             </div>
 
             <div className="mt-10 text-center">
@@ -516,6 +527,14 @@ export default function App() {
     <div className="min-h-screen bg-brand-surface flex selection:bg-brand-primary/20">
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex w-80 bg-white border-r border-brand-neutral/10 flex-col p-8 sticky top-0 h-screen">
+        <div className="flex items-center gap-4 mb-4 px-2">
+          {isOfflineMode && (
+            <div className="bg-amber-100 text-amber-700 text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest flex items-center gap-2">
+              <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+              Offline Mode
+            </div>
+          )}
+        </div>
         <div className="flex items-center gap-4 mb-16 px-2">
           <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-xl shadow-brand-primary/10 overflow-hidden">
             <Logo className="w-10 h-10" />
@@ -565,11 +584,11 @@ export default function App() {
           </div>
           
           <button 
-            onClick={() => signOut(auth)}
+            onClick={() => isOfflineMode ? setIsOfflineMode(false) : signOut(auth)}
             className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-black text-sm text-brand-secondary hover:bg-brand-secondary/5 transition-all"
           >
             <LogOut className="w-6 h-6" />
-            Sign Out
+            {isOfflineMode ? 'Exit Offline Mode' : 'Sign Out'}
           </button>
         </div>
       </aside>
@@ -582,10 +601,15 @@ export default function App() {
             <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
               <Logo className="w-10 h-10" />
             </div>
-            <h1 className="text-2xl font-black text-brand-neutral tracking-tighter">ApplyMate</h1>
+            <div>
+              <h1 className="text-2xl font-black text-brand-neutral tracking-tighter">ApplyMate</h1>
+              {isOfflineMode && (
+                <p className="text-[10px] text-amber-600 font-bold uppercase tracking-widest leading-none">Offline</p>
+              )}
+            </div>
           </div>
           <button 
-            onClick={() => signOut(auth)}
+            onClick={() => isOfflineMode ? setIsOfflineMode(false) : signOut(auth)}
             className="w-12 h-12 rounded-2xl bg-brand-surface flex items-center justify-center text-brand-neutral/60 hover:bg-brand-secondary/5 hover:text-brand-secondary transition-colors"
           >
             <LogOut className="w-6 h-6" />
